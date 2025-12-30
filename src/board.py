@@ -1,3 +1,13 @@
+"""
+
+Known issues:
+    player vision isn't tied to the raster scaling
+    
+Next upgrades:
+    range indicator
+"""
+
+
 import pygame
 import pathlib
 import os
@@ -9,7 +19,6 @@ imagePath = os.path.abspath(r"C:\Users\Olivier\temp\dndtestpictures")
 imageLoader = ImageLoader(imagePath)
 
 RASTER_SPACING = 25
-BACKGROUND_IMAGE_NAME = 'attempt'
 
 
 class Player():
@@ -28,7 +37,7 @@ class Player():
         if pygame.mouse.get_pos() and self.status == 'clicked':
             self.rect.center = pygame.mouse.get_pos()
             
-    def clicked(self, position, _):
+    def clicked(self, position, type, player):
         if self.rect.collidepoint(position):
             if self.status != 'clicked':
                 self.status = 'clicked'
@@ -44,7 +53,7 @@ class Button():
         self.image.fill('blue')
         self.rect = self.image.get_rect(center = pos)
         
-    def clicked(self, position, type):
+    def clicked(self, position, type, player):
         global RASTER_SPACING
         if self.rect.collidepoint(position):
             if type == 1:
@@ -53,23 +62,10 @@ class Button():
                 RASTER_SPACING = RASTER_SPACING - 1
         return False
             
-class Background_image_button():
-    def __init__(self, name, pos):
-        self.image = pygame.Surface((40,40))
-        self.image.fill('blue')
-        self.rect = self.image.get_rect(center = pos)
-        self.name = name
-        
-    def clicked(self, position, type):
-        global BACKGROUND_IMAGE_NAME
-        if self.rect.collidepoint(position):
-            BACKGROUND_IMAGE_NAME = self.name
-            return True
-        else:
-            return False    
-    
+
 class Background():
-    def __init__(self, name, width, height):
+    def __init__(self, name, width, height, button_location):
+        global RASTER_SPACING
         self.width = width
         self.height = height
         self.image = self.get_background(name)
@@ -78,11 +74,12 @@ class Background():
         self.cover.set_colorkey('white')
         self.mask = pygame.Surface((width, height))  # store what has been seen because vision is a circle
         self.mask.fill('black')
+        self.raster_spacing = RASTER_SPACING
         
-        self.buttons = [Button((20,20))]
-        print(imageLoader._images)
-        for x, image in enumerate(imageLoader._images):
-            self.buttons.append(Background_image_button(image, (20,x*80+80)))
+        self.buttonimage =  pygame.transform.scale(self.image, (150, 150))
+        self.rect = self.buttonimage.get_rect(center = button_location)
+        
+        self.lastKnownPlayerPosition = None
 
     # get the background image
     # @lru_cache
@@ -91,16 +88,15 @@ class Background():
         background = pygame.transform.scale(background, (screen.get_width(), screen.get_height()))
         return background
         
-    def draw_background(self, screen):
+    def draw_background(self, screen, player):
         screen.blit(self.image, (0,0))
         self.draw_raster(screen)
-        background.draw_player_vision(150, player.rect.centerx, player.rect.centery)
-        screen.blit(background.cover, (0,0))
-        for button in self.buttons:
-            screen.blit(button.image, (button.rect.centerx, button.rect.centery))
+        self.draw_player_vision(150, player.rect.left, player.rect.top)
+        screen.blit(self.cover, (0,0))
     
     def draw_raster(self, screen):
         global RASTER_SPACING
+        self.raster_spacing = RASTER_SPACING
         spacing = self.height//RASTER_SPACING
         for i in range(0, self.width, spacing):
             pygame.draw.line(screen, (0,0,0), (i, 0), (i,self.height), 3)
@@ -113,14 +109,36 @@ class Background():
         self.cover.blit(self.mask, (0,0))
         
     def clicked(self, position, type):
-        for button in self.buttons:
-            clicked = button.clicked(position, type)
-            if clicked:
-                self.image = self.get_background(button.name)
-                self.mask.fill('black')
-                break
+        global RASTER_SPACING
+        if self.rect.collidepoint(position):
+            RASTER_SPACING = self.raster_spacing
+            return True
+        else:
+            return False   
 
-
+class BackgroundManager:
+    def __init__(self, imageLoader, screeninfo):
+        self.activeBackground = None
+        self.backgrounds = []
+                
+        for x, image in enumerate(imageLoader._images):
+            self.backgrounds.append(Background(image, screenInfo.current_w, screenInfo.current_h, (75,x*200+200)))
+            
+    def clicked(self, position, type, player):
+        for background in self.backgrounds:
+            if background.clicked(position, type):
+                if self.activeBackground:
+                    self.activeBackground.lastKnownPlayerPosition = player.rect.center
+                if background.lastKnownPlayerPosition:
+                    player.rect.center = background.lastKnownPlayerPosition
+                self.activeBackground = background
+                
+    def draw_background(self, screen, player):
+        if self.activeBackground:
+            self.activeBackground.draw_background(screen, player)
+        for background in self.backgrounds:
+            screen.blit(background.buttonimage, (background.rect.left, background.rect.top))
+        
 pygame.init()
 screenInfo = pygame.display.Info()
 
@@ -130,8 +148,11 @@ clock = pygame.time.Clock()
 # group setup
 
 player = Player()
-background = Background('attempt', screenInfo.current_w, screenInfo.current_h)
-clickables = [player, background]
+scaler = Button((20,20))
+backgroundmanager = BackgroundManager(imageLoader, screenInfo)
+clickables = [player, scaler, backgroundmanager]
+
+
 
 while True:
     for event in pygame.event.get():
@@ -140,15 +161,17 @@ while True:
             sys.exit()
         elif event.type == pygame.MOUSEBUTTONDOWN:
             for clickable in clickables:
-                clickable.clicked(event.pos, event.button)
+                clickable.clicked(event.pos, event.button, player)
         
 
-    screen.fill('white')
+    screen.fill('grey')
     
     player.update()
-    background.draw_background(screen)
 
+    backgroundmanager.draw_background(screen, player)
     screen.blit(player.image, (player.rect.left, player.rect.top))
+    screen.blit(scaler.image, (scaler.rect.left, scaler.rect.top))
+
     pygame.display.update()
     
     
