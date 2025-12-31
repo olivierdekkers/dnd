@@ -1,9 +1,5 @@
 """
-
-Known issues:
-    player vision isn't tied to the raster scaling
-    
-Next upgrades:
+  Next upgrades:
     range indicator
 """
 
@@ -48,12 +44,13 @@ class Background():
         self.width = width
         self.height = height
         self.image = self.get_background(name)
+        
         self.cover = pygame.Surface((width, height))
         self.cover.fill('black')
         self.cover.set_colorkey('white')
         self.mask = pygame.Surface((width, height))  # store what has been seen because vision is a circle
         self.mask.fill('black')
-        self.raster_spacing = 25
+        self.raster_spacing = 50
         
         self.buttonimage =  pygame.transform.scale(self.image, (150, 150))
         self.rect = self.buttonimage.get_rect(center = button_location)
@@ -61,6 +58,7 @@ class Background():
         self.scaler_image =  pygame.Surface((40,40))
         self.scaler_image.fill('blue')
         self.scaler_rect = self.scaler_image.get_rect(center=(40,40))
+        self.big_scaler_rect = self.scaler_image.get_rect(center=(90,40))
         
         self.lastKnownPlayerPosition = None
 
@@ -72,23 +70,28 @@ class Background():
         return background
         
     def draw_background(self, screen, player):
+        self.image.blit(self.draw_raster(self.raster_spacing), (0,0))
         screen.blit(self.image, (0,0))
-        self.draw_raster(screen)
         self.draw_player_vision(player)
         screen.blit(self.cover, (0,0))
         screen.blit(self.scaler_image, (self.scaler_rect.left, self.scaler_rect.top))
-    
-    def draw_raster(self, screen):
-        spacing = self.height//self.raster_spacing
-        for i in range(0, self.width, spacing):
+        screen.blit(self.scaler_image, (self.big_scaler_rect.left, self.big_scaler_rect.top))
+
+    @lru_cache
+    def draw_raster(self, raster_spacing):
+        screen = pygame.Surface((self.width, self.height))
+        screen.fill('white')
+        screen.set_colorkey('white')
+        for i in range(0, self.width, raster_spacing):
             pygame.draw.line(screen, (0,0,0), (i, 0), (i,self.height), 3)
             
-        for j in range(0, self.height, spacing):
+        for j in range(0, self.height, raster_spacing):
             pygame.draw.line(screen, (0,0,0), (0, j), (self.width,j), 3)
-                 
+        return screen
+       
     def draw_player_vision(self, player):
         # how far in feet * how many spaces there are / conversion from feet to squares * 2 for both directions
-        pygame.draw.circle(self.mask, 'white', player.rect.center, player.vision * (self.height//self.raster_spacing) / 20 * 2)
+        pygame.draw.circle(self.mask, 'white', player.rect.center, player.vision * self.raster_spacing / 20 * 2)
         self.cover.blit(self.mask, (0,0))
         
     def scaler_clicked(self, position, type, player):
@@ -97,6 +100,18 @@ class Background():
                 self.raster_spacing += 1
             else:
                 self.raster_spacing -= 1
+            return True
+        return False
+        
+    def big_scaler_clicked(self, position, type, player):
+        if self.big_scaler_rect.collidepoint(position):
+            if type == 1:
+                self.raster_spacing += 5
+            else:
+                self.raster_spacing -= 5
+                
+            if self.raster_spacing < 1:
+                self.raster_spacing = 1
             return True
         return False
         
@@ -116,6 +131,8 @@ class BackgroundManager:
             
     def clicked(self, position, type, player):
         if self.activeBackground and self.activeBackground.scaler_clicked(position, type, player):
+            return
+        if self.activeBackground and self.activeBackground.big_scaler_clicked(position, type, player):
             return
         for background in self.backgrounds:
             if background.clicked(position, type, player):
