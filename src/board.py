@@ -1,4 +1,7 @@
 """
+    fix if there are no changes to the background you don't need to blit it again
+    so if there are no changes to the raster or player vision you don't need to repaint it
+
   Next upgrades:
     range indicator
 """
@@ -68,26 +71,20 @@ class Background():
         background = getattr(imageLoader, name)
         background = pygame.transform.scale(background, (screen.get_width(), screen.get_height()))
         return background
-        
     def draw_background(self, screen, player):
-        self.image.blit(self.draw_raster(self.raster_spacing), (0,0))
         screen.blit(self.image, (0,0))
+        self.draw_raster(screen,self.raster_spacing)
         self.draw_player_vision(player)
         screen.blit(self.cover, (0,0))
         screen.blit(self.scaler_image, (self.scaler_rect.left, self.scaler_rect.top))
         screen.blit(self.scaler_image, (self.big_scaler_rect.left, self.big_scaler_rect.top))
 
-    @lru_cache
-    def draw_raster(self, raster_spacing):
-        screen = pygame.Surface((self.width, self.height))
-        screen.fill('white')
-        screen.set_colorkey('white')
+    def draw_raster(self, screen, raster_spacing):
         for i in range(0, self.width, raster_spacing):
             pygame.draw.line(screen, (0,0,0), (i, 0), (i,self.height), 3)
             
         for j in range(0, self.height, raster_spacing):
             pygame.draw.line(screen, (0,0,0), (0, j), (self.width,j), 3)
-        return screen
        
     def draw_player_vision(self, player):
         # how far in feet * how many spaces there are / conversion from feet to squares * 2 for both directions
