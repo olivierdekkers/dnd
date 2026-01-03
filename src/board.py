@@ -49,10 +49,11 @@ class Background():
         self.image = self.get_background(name)
         
         self.cover = pygame.Surface((width, height))
-        self.cover.fill('black')
+        self.cover.fill((0,0,0))
+        self.cover.set_alpha(200)
         self.cover.set_colorkey('white')
         self.mask = pygame.Surface((width, height))  # store what has been seen because vision is a circle
-        self.mask.fill('black')
+        self.mask.fill((0,0,0))
         self.raster_spacing = 50
         
         self.buttonimage =  pygame.transform.scale(self.image, (150, 150))

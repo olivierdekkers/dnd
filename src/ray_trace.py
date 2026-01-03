@@ -4,12 +4,12 @@ import os
 from imageloader.imageloader import ImageLoader
 from functools import lru_cache
 import sys
-from itertools import chain
+import math
 
 imagePath = os.path.abspath(r"C:\Users\Olivier\temp\raytrace")
 imageLoader = ImageLoader(imagePath)
 
-viewsize = 100
+viewsize = 150
 
 class Rect(pygame.sprite.Sprite):
     def __init__(self):
@@ -45,12 +45,15 @@ group = pygame.sprite.Group([rect])
 
 line_image = pygame.Surface((viewsize,viewsize))
 line_image.set_colorkey('black')
+line_width = 1
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+
     if  pygame.mouse.get_pos():
+        previous_coordinate = rect.rect.center
         rect.rect.center = pygame.mouse.get_pos()
     # screen.blit(rect.image, (rect.rect.left, rect.rect.top))
     
@@ -58,28 +61,44 @@ while True:
     offset_y = 0 - rect.rect.top
     hit = rect.mask.overlap(inverted_bg_mask, (offset_x, offset_y))
     if hit:
-        
-        overlapping_mask = rect.mask.overlap_mask(inverted_bg_mask, (offset_x, offset_y))
-        overlapping_mask_image = overlapping_mask.to_surface()
-        overlapping_mask_image.set_colorkey('black')
-                
-        for x in range(viewsize):
-            for y in range(viewsize//2):
-                if overlapping_mask_image.get_at((x,y))[0] != 0 and overlapping_mask_image.get_at((x,y))[1] != 0:
-                    line_image.fill('black')
-                    pygame.draw.line(line_image, 'white',(x,y), (viewsize/2,viewsize/2), 3)
-                    if not pygame.mask.from_surface(line_image).overlap(bg_mask, (offset_x,offset_y)):
-                        pygame.draw.line(overlapping_mask_image, 'red',(x,y), (viewsize/2,viewsize/2), 3)
-                    else:
-                        overlapping_mask_image.set_at((x,y), 'black')
+        if  rect.rect.centerx - previous_coordinate[0] or rect.rect.centery - previous_coordinate[1]:
+            overlapping_mask = rect.mask.overlap_mask(inverted_bg_mask, (offset_x, offset_y))
+            overlapping_mask_image = overlapping_mask.to_surface()
+            overlapping_mask_image.set_colorkey('black')
+                    
+            for x in range(viewsize//2):
+                for y in range(viewsize//2):
+                    if overlapping_mask_image.get_at((x,y))[0] != 0 and overlapping_mask_image.get_at((x,y))[1] != 0:
+                        line_image.fill('black')
+                        pygame.draw.line(line_image, 'white',(x,y), (viewsize/2,viewsize/2), line_width)
+                        if not pygame.mask.from_surface(line_image).overlap(bg_mask, (offset_x,offset_y)):
+                            pygame.draw.line(overlapping_mask_image, 'red',(x,y), (viewsize/2,viewsize/2), line_width)
+                        else:
+                            overlapping_mask_image.set_at((x,y), 'black')
 
-                if overlapping_mask_image.get_at((x,viewsize- y -1 ))[0] != 0 and overlapping_mask_image.get_at((x ,viewsize - y -1 ))[1] != 0:
-                    line_image.fill('black')
-                    pygame.draw.line(line_image, 'white',(x,viewsize - y -1 ), (viewsize/2,viewsize/2), 3)
-                    if not pygame.mask.from_surface(line_image).overlap(bg_mask, (offset_x,offset_y)):
-                        pygame.draw.line(overlapping_mask_image, 'red',(x,viewsize - y -1 ), (viewsize/2,viewsize/2), 3)
-                    else:
-                        overlapping_mask_image.set_at((x,viewsize - y -1 ), 'black')
+                    if overlapping_mask_image.get_at((x,viewsize- y -1 ))[0] != 0 and overlapping_mask_image.get_at((x ,viewsize - y -1 ))[1] != 0:
+                        line_image.fill('black')
+                        pygame.draw.line(line_image, 'white',(x,viewsize - y -1 ), (viewsize/2,viewsize/2), line_width)
+                        if not pygame.mask.from_surface(line_image).overlap(bg_mask, (offset_x,offset_y)):
+                            pygame.draw.line(overlapping_mask_image, 'red',(x,viewsize - y -1 ), (viewsize/2,viewsize/2), line_width)
+                        else:
+                            overlapping_mask_image.set_at((x,viewsize - y -1 ), 'black')
+
+                    if overlapping_mask_image.get_at((viewsize - x -1,y))[0] != 0 and overlapping_mask_image.get_at((viewsize - x -1,y))[1] != 0:
+                        line_image.fill('black')
+                        pygame.draw.line(line_image, 'white',(viewsize - x -1,y), (viewsize/2,viewsize/2), line_width)
+                        if not pygame.mask.from_surface(line_image).overlap(bg_mask, (offset_x,offset_y)):
+                            pygame.draw.line(overlapping_mask_image, 'red',(viewsize - x -1,y), (viewsize/2,viewsize/2), line_width)
+                        else:
+                            overlapping_mask_image.set_at((viewsize - x -1,y), 'black')
+
+                    if overlapping_mask_image.get_at((viewsize - x -1,viewsize- y -1 ))[0] != 0 and overlapping_mask_image.get_at((viewsize - x -1 ,viewsize - y -1 ))[1] != 0:
+                        line_image.fill('black')
+                        pygame.draw.line(line_image, 'white',(viewsize - x -1,viewsize - y -1 ), (viewsize/2,viewsize/2), line_width)
+                        if not pygame.mask.from_surface(line_image).overlap(bg_mask, (offset_x,offset_y)):
+                            pygame.draw.line(overlapping_mask_image, 'red',(viewsize - x -1,viewsize - y -1 ), (viewsize/2,viewsize/2), line_width)
+                        else:
+                            overlapping_mask_image.set_at((viewsize - x -1,viewsize - y -1 ), 'black')
         
         screen.blit(overlapping_mask_image, (rect.rect.left, rect.rect.top))
     pygame.display.update()
