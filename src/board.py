@@ -56,10 +56,9 @@ def PointsInCircum(radius, center_x, center_y, num_points):
 
 class Background():
     def __init__(self, name, width, height, button_location):
+        self.image, width, height = self.get_background(name, width, height)
         self.width = width
         self.height = height
-        self.image = self.get_background(name)
-        
         self.cover = pygame.Surface((width, height))
         self.cover.fill((0,0,0))
         self.cover.set_alpha(230)
@@ -78,7 +77,7 @@ class Background():
         
         if hasattr(imageLoader, name+'_wall'):
             bg = getattr(imageLoader, name+'_wall')
-            bg = pygame.transform.scale(bg, (screen.get_width(), screen.get_height()))
+            bg = pygame.transform.scale(bg, (width, height))
             self.bg_mask = pygame.mask.from_surface(bg)
             self.inverted_bg_mask = pygame.mask.from_surface(bg)
             self.inverted_bg_mask.invert()
@@ -90,10 +89,15 @@ class Background():
 
     # get the background image
     # @lru_cache
-    def get_background(self, name='attempt'):
+    def get_background(self, name, width, height):
         background = getattr(imageLoader, name)
-        background = pygame.transform.scale(background, (screen.get_width(), screen.get_height()))
-        return background
+        
+        ratio = background.get_width() / background.get_height()
+        height = round(height*0.9)
+        width = round(height * ratio)
+        
+        background = pygame.transform.scale(background, (width, height))
+        return background, width, height
         
     def draw_background(self, screen, player):
         screen.blit(self.image, (0,0))
@@ -194,6 +198,8 @@ class BackgroundManager:
                 
     def draw_background(self, screen, player):
         if self.activeBackground:
+            if pygame.display.get_window_size() != (self.activeBackground.width, self.activeBackground.height):
+                screen = pygame.display.set_mode((self.activeBackground.width, self.activeBackground.height))
             self.activeBackground.draw_background(screen, player)
         for background in self.backgrounds:
             screen.blit(background.buttonimage, (background.rect.left, background.rect.top))
@@ -201,7 +207,7 @@ class BackgroundManager:
 pygame.init()
 screenInfo = pygame.display.Info()
 
-screen = pygame.display.set_mode([screenInfo.current_w, screenInfo.current_h])
+screen = pygame.display.set_mode([1000, 1000])
 clock = pygame.time.Clock()
 
 # group setup
