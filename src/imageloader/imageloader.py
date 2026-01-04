@@ -19,7 +19,10 @@ class ImageLoader:
                 self._images.update({filename.split('.')[0]: os.path.join(dirpath, filename) for filename in filenames if filename.endswith('jpeg')})
 
         def __getattr__(self, imageName):
-            return pygame.image.load(self._images[imageName]).convert_alpha()
+            try: 
+                return pygame.image.load(self._images[imageName]).convert_alpha()
+            except KeyError:
+                raise AttributeError(f'no such image {imageName}')
 
     def __init__(self, arg):
         if not ImageLoader.instance:

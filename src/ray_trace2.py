@@ -29,13 +29,13 @@ screenInfo = pygame.display.Info()
 
 screen = pygame.display.set_mode([1000,1000])
 screen.fill('blue')
-background = getattr(imageLoader, 'maze')
-background = pygame.transform.scale(background, (screen.get_width(), screen.get_height()))
-bg_mask = pygame.mask.from_surface(background)
-inverted_bg_mask = pygame.mask.from_surface(background)
+bg = getattr(imageLoader, 'maze')
+bg = pygame.transform.scale(bg, (screen.get_width(), screen.get_height()))
+bg_mask = pygame.mask.from_surface(bg)
+inverted_bg_mask = pygame.mask.from_surface(bg)
 inverted_bg_mask.invert()
 
-screen.blit(background, (0,0))
+screen.blit(bg, (0,0))
 
 
 clock = pygame.time.Clock()
@@ -77,6 +77,7 @@ while True:
         offset_x = 0 - rect.rect.left
         offset_y = 0 - rect.rect.top
         hit = rect.mask.overlap(inverted_bg_mask, (offset_x, offset_y))
+        print(offset_x, offset_y)
         if hit:
             overlapping_mask = rect.mask.overlap_mask(inverted_bg_mask, (offset_x, offset_y))
             overlapping_mask_image = overlapping_mask.to_surface()

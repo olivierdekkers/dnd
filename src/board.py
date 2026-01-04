@@ -76,12 +76,15 @@ class Background():
         self.scaler_rect = self.scaler_image.get_rect(center=(40,40))
         self.big_scaler_rect = self.scaler_image.get_rect(center=(90,40))
         
-        
-        bg = getattr(imageLoader, 'attempt_wall')
-        self.bg = pygame.transform.scale(bg, (screen.get_width(), screen.get_height()))
-        self.bg_mask = pygame.mask.from_surface(self.bg)
-        self.inverted_bg_mask = pygame.mask.from_surface(self.bg)
-        self.inverted_bg_mask.invert()
+        if hasattr(imageLoader, name+'_wall'):
+            bg = getattr(imageLoader, name+'_wall')
+            bg = pygame.transform.scale(bg, (screen.get_width(), screen.get_height()))
+            self.bg_mask = pygame.mask.from_surface(bg)
+            self.inverted_bg_mask = pygame.mask.from_surface(bg)
+            self.inverted_bg_mask.invert()
+        else:
+            self.bg_mask = None
+            self.inverted_bg_mask = None
         
         self.lastKnownPlayerPosition = None
 
@@ -109,32 +112,34 @@ class Background():
        
     def draw_player_vision(self, player, screen):
         # how far in feet * how many spaces there are / conversion from feet to squares * 2 for both directions
-        player_mask = pygame.Surface((player.vision * self.raster_spacing / 20 * 2, player.vision * self.raster_spacing / 20 * 2))
-        rect = player_mask.get_rect(center = player.rect.center)
-        viewsize=player.vision * self.raster_spacing / 20 * 2
-        pygame.draw.circle(player_mask, 'white', (player.vision * self.raster_spacing / 20, player.vision * self.raster_spacing / 20), viewsize)
-        player_mask = pygame.mask.from_surface(player_mask)
-        
-        line_image = pygame.Surface((viewsize,viewsize))
-        line_image.set_colorkey('black')
-        line_width = 1
-        if  player.rect.centerx - player.previous_coordinate[0] or player.rect.centery - player.previous_coordinate[1]:
-            offset_x = 0 - rect.left
-            offset_y = 0 - rect.top
-            hit = player_mask.overlap(self.inverted_bg_mask, (offset_x, offset_y))
-            if hit:
-                overlapping_mask = player_mask.overlap_mask(self.inverted_bg_mask, (offset_x, offset_y))
-                overlapping_mask_image = overlapping_mask.to_surface()
-                overlapping_mask_image.set_colorkey('black')
-                for x,y in PointsInCircum(viewsize/2-0.6, viewsize/2, viewsize/2, 1000):
-                    if overlapping_mask_image.get_at((x,y))[0] != 0 and overlapping_mask_image.get_at((x,y))[1] != 0:
-                        line_image.fill('black')
-                        pygame.draw.line(line_image, 'white',(x,y), (viewsize/2,viewsize/2), line_width)
-                        if not pygame.mask.from_surface(line_image).overlap(self.bg_mask, (offset_x,offset_y)):
-                            self.mask.blit(line_image, (rect.left, rect.top))
-                        else:
-                            pygame.draw.line(overlapping_mask_image, 'black',(x,y), (viewsize/2,viewsize/2), line_width)
-
+        if self.bg_mask:
+            player_mask = pygame.Surface((player.vision * self.raster_spacing / 20 * 2, player.vision * self.raster_spacing / 20 * 2))
+            rect = player_mask.get_rect(center = player.rect.center)
+            viewsize=player.vision * self.raster_spacing / 20 * 2
+            pygame.draw.circle(player_mask, 'white', (player.vision * self.raster_spacing / 20, player.vision * self.raster_spacing / 20), viewsize)
+            player_mask = pygame.mask.from_surface(player_mask)
+            
+            line_image = pygame.Surface((viewsize,viewsize))
+            line_image.set_colorkey('black')
+            line_width = 1
+            if  player.rect.centerx - player.previous_coordinate[0] or player.rect.centery - player.previous_coordinate[1]:
+                offset_x = 0 - rect.left
+                offset_y = 0 - rect.top
+                hit = player_mask.overlap(self.inverted_bg_mask, (offset_x, offset_y))
+                if hit:
+                    overlapping_mask = player_mask.overlap_mask(self.inverted_bg_mask, (offset_x, offset_y))
+                    overlapping_mask_image = overlapping_mask.to_surface()
+                    overlapping_mask_image.set_colorkey('black')
+                    for x,y in PointsInCircum(viewsize/2-0.6, viewsize/2, viewsize/2, 1000):
+                        if overlapping_mask_image.get_at((x,y))[0] != 0 and overlapping_mask_image.get_at((x,y))[1] != 0:
+                            line_image.fill('black')
+                            pygame.draw.line(line_image, 'white',(x,y), (viewsize/2,viewsize/2), line_width)
+                            if not pygame.mask.from_surface(line_image).overlap(self.bg_mask, (offset_x,offset_y)):
+                                self.mask.blit(line_image, (rect.left, rect.top))
+                            else:
+                                pygame.draw.line(overlapping_mask_image, 'black',(x,y), (viewsize/2,viewsize/2), line_width)
+        else:
+            pygame.draw.circle(self.mask, 'white', (player.rect.left, player.rect.top), player.vision * self.raster_spacing / 20 *2 )
         self.cover.blit(self.mask, (0,0))
         
     def scaler_clicked(self, position, type, player):
@@ -169,7 +174,7 @@ class BackgroundManager:
         self.activeBackground = None
         self.backgrounds = []
         
-        for x, image in enumerate(imageLoader._images):
+        for x, image in enumerate([image for image in imageLoader._images if '_wall' not in image]):
             if image != 'attempt_wall':
                 self.backgrounds.append(Background(image, screenInfo.current_w, screenInfo.current_h, (75,x*200+200)))
             
