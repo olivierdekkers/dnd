@@ -14,6 +14,7 @@ from imageloader.imageloader import ImageLoader
 from functools import lru_cache
 import sys
 import numpy as np
+import math
 
 imagePath = os.path.abspath(r"C:\Users\Olivier\temp\dndtestpictures")
 imageLoader = ImageLoader(imagePath)
@@ -117,31 +118,39 @@ class Background():
     def draw_player_vision(self, player, screen):
         # how far in feet * how many spaces there are / conversion from feet to squares * 2 for both directions
         if self.bg_mask:
-            player_mask = pygame.Surface((player.vision * self.raster_spacing / 20 * 2, player.vision * self.raster_spacing / 20 * 2))
-            rect = player_mask.get_rect(center = player.rect.center)
-            viewsize=player.vision * self.raster_spacing / 20 * 2
-            pygame.draw.circle(player_mask, 'white', (player.vision * self.raster_spacing / 20, player.vision * self.raster_spacing / 20), viewsize)
-            player_mask = pygame.mask.from_surface(player_mask)
-            
-            line_image = pygame.Surface((viewsize,viewsize))
-            line_image.set_colorkey('black')
-            line_width = 1
             if  player.rect.centerx - player.previous_coordinate[0] or player.rect.centery - player.previous_coordinate[1]:
-                offset_x = 0 - rect.left
-                offset_y = 0 - rect.top
-                hit = player_mask.overlap(self.inverted_bg_mask, (offset_x, offset_y))
-                if hit:
-                    overlapping_mask = player_mask.overlap_mask(self.inverted_bg_mask, (offset_x, offset_y))
-                    overlapping_mask_image = overlapping_mask.to_surface()
-                    overlapping_mask_image.set_colorkey('black')
-                    for x,y in PointsInCircum(viewsize/2-0.6, viewsize/2, viewsize/2, 1000):
-                        if overlapping_mask_image.get_at((x,y))[0] != 0 and overlapping_mask_image.get_at((x,y))[1] != 0:
-                            line_image.fill('black')
-                            pygame.draw.line(line_image, 'white',(x,y), (viewsize/2,viewsize/2), line_width)
-                            if not pygame.mask.from_surface(line_image).overlap(self.bg_mask, (offset_x,offset_y)):
-                                self.mask.blit(line_image, (rect.left, rect.top))
-                            else:
-                                pygame.draw.line(overlapping_mask_image, 'black',(x,y), (viewsize/2,viewsize/2), line_width)
+                viewsize=player.vision * self.raster_spacing / 20 * 2
+                player_view = pygame.Surface((viewsize, viewsize))
+                player_view.fill('black')
+                player_view.set_colorkey('black')
+                
+                pygame.draw.circle(player_view, 'white', (viewsize/2,viewsize/2), viewsize/2)
+                player_rect = self.image.get_rect(center=player.rect.center)
+                mask = pygame.mask.from_surface(player_view)
+                
+                offset_x = viewsize/2-player.rect.left
+                offset_y = viewsize/2-player.rect.top
+                
+                hit = mask.overlap(self.bg_mask, (offset_x, offset_y))
+                
+                overlapping_mask = mask.overlap_mask(self.bg_mask, (offset_x, offset_y))
+                sizes = overlapping_mask.get_bounding_rects()
+                
+                overlapping_mask = mask.overlap_mask(self.inverted_bg_mask, (offset_x, offset_y))
+                overlapping_mask_image = overlapping_mask.to_surface()
+                overlapping_mask_image.set_colorkey('black')
+                for size in sizes:
+                        # pygame.draw.rect(overlapping_mask_image, 'red', size, width=1)
+                        vectors = []
+                        for point in [size.topleft, size.topright, size.bottomleft, size.bottomright]:
+                            vectors.append((pygame.math.Vector2(point),pygame.math.Vector2(viewsize, 0).rotate_rad(math.atan2(point[1]-viewsize/2, point[0]-viewsize/2))))
+                            
+                            # pygame.draw.line(overlapping_mask_image, 'red', point, pygame.math.Vector2(500, 0).rotate_rad(math.atan2(point[1]-viewsize/2, point[0]-viewsize/2)), width=1)
+                        a ,smallest, biggest, b = vectors# sorted(vectors, key=lambda x: ((x[0][0] - viewsize/2)**2 + (x[0][1] - viewsize/2)**2)**0.5)
+                        pygame.draw.polygon(overlapping_mask_image, 'black', [smallest[0], biggest[0], biggest[0]+biggest[1], smallest[0]+smallest[1]])
+                        pygame.draw.polygon(overlapping_mask_image, 'black', [a[0], b[0], b[0]+b[1], a[0]+a[1]])
+
+                self.mask.blit(overlapping_mask_image,(player.rect.left-viewsize/2, player.rect.top-viewsize/2))
         else:
             pygame.draw.circle(self.mask, 'white', (player.rect.left, player.rect.top), player.vision * self.raster_spacing / 20 *2 )
         self.cover.blit(self.mask, (0,0))
