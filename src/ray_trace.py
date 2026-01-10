@@ -9,7 +9,7 @@ import math
 imagePath = os.path.abspath(r"C:\Users\Olivier\temp\raytrace")
 imageLoader = ImageLoader(imagePath)
 
-viewsize = 150
+viewsize = 350
 
 class Rect(pygame.sprite.Sprite):
     def __init__(self):

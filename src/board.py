@@ -45,15 +45,7 @@ class Player():
         else:
             return False
 
-@lru_cache 
-def PointsInCircum(radius, center_x, center_y, num_points):
-    points = []
-    for i in range(num_points):
-        angle = i * 2 * np.pi / num_points
-        x = center_x + radius * np.cos(angle)
-        y = center_y + radius * np.sin(angle)
-        points.append((round(x), round(y)))
-    return points  
+
 
 class Background():
     def __init__(self, name, width, height, button_location):
@@ -71,10 +63,10 @@ class Background():
         self.buttonimage =  pygame.transform.scale(self.image, (150, 150))
         self.rect = self.buttonimage.get_rect(center = button_location)
         
-        self.scaler_image =  pygame.Surface((40,40))
-        self.scaler_image.fill('blue')
-        self.scaler_rect = self.scaler_image.get_rect(center=(40,40))
-        self.big_scaler_rect = self.scaler_image.get_rect(center=(90,40))
+        # self.scaler_image =  pygame.Surface((40,40))
+        # self.scaler_image.fill('blue')
+        # self.scaler_rect = self.scaler_image.get_rect(center=(40,40))
+        # self.big_scaler_rect = self.scaler_image.get_rect(center=(90,40))
         
         if hasattr(imageLoader, name+'_wall'):
             bg = getattr(imageLoader, name+'_wall')
@@ -105,8 +97,8 @@ class Background():
         self.draw_raster(screen,self.raster_spacing)
         self.draw_player_vision(player, screen)
         screen.blit(self.cover, (0,0))
-        screen.blit(self.scaler_image, (self.scaler_rect.left, self.scaler_rect.top))
-        screen.blit(self.scaler_image, (self.big_scaler_rect.left, self.big_scaler_rect.top))
+        # screen.blit(self.scaler_image, (self.scaler_rect.left, self.scaler_rect.top))
+        # screen.blit(self.scaler_image, (self.big_scaler_rect.left, self.big_scaler_rect.top))
 
     def draw_raster(self, screen, raster_spacing):
         for i in range(0, self.width, raster_spacing):
@@ -154,28 +146,7 @@ class Background():
         else:
             pygame.draw.circle(self.mask, 'white', (player.rect.left, player.rect.top), player.vision * self.raster_spacing / 20 *2 )
         self.cover.blit(self.mask, (0,0))
-        
-    def scaler_clicked(self, position, type, player):
-        if self.scaler_rect.collidepoint(position):
-            if type == 1:
-                self.raster_spacing += 1
-            else:
-                self.raster_spacing -= 1
-            return True
-        return False
-        
-    def big_scaler_clicked(self, position, type, player):
-        if self.big_scaler_rect.collidepoint(position):
-            if type == 1:
-                self.raster_spacing += 5
-            else:
-                self.raster_spacing -= 5
-                
-            if self.raster_spacing < 1:
-                self.raster_spacing = 1
-            return True
-        return False
-        
+
     def clicked(self, position, type, player):
         if self.rect.collidepoint(position):
             return True
@@ -191,11 +162,15 @@ class BackgroundManager:
             if image != 'attempt_wall':
                 self.backgrounds.append(Background(image, screenInfo.current_w, screenInfo.current_h, (75,x*200+200)))
             
-    def clicked(self, position, type, player):
-        if self.activeBackground and self.activeBackground.scaler_clicked(position, type, player):
-            return
-        if self.activeBackground and self.activeBackground.big_scaler_clicked(position, type, player):
-            return
+    def clicked(self, position, type, player, button=None):
+        if self.activeBackground and type == 4:
+            self.activeBackground.raster_spacing += 1
+            return True
+        elif self.activeBackground and type == 5:
+            self.activeBackground.raster_spacing -= 1
+            if self.activeBackground.raster_spacing < 1:
+                self.activeBackground.raster_spacing = 1
+            return True
         for background in self.backgrounds:
             if background.clicked(position, type, player):
                 if self.activeBackground:
@@ -203,8 +178,9 @@ class BackgroundManager:
                 if background.lastKnownPlayerPosition:
                     player.rect.center = background.lastKnownPlayerPosition
                 self.activeBackground = background
-                return
-                
+                return True
+        return False
+
     def draw_background(self, screen, player):
         if self.activeBackground:
             if pygame.display.get_window_size() != (self.activeBackground.width, self.activeBackground.height):
@@ -219,11 +195,84 @@ screenInfo = pygame.display.Info()
 screen = pygame.display.set_mode([1000, 1000])
 clock = pygame.time.Clock()
 
-# group setup
+class Ranges:
+    def __init__(self, type, position, size, angle=None):
+        """
+        type can be circle square or arc
+        """
+        self.type = type
+        self.default_position = position
+        self.status = None
+        self.rect = pygame.Rect(position,size)
+        self.default_size = self.rect.size
+        self.default_angle = None
+        if type == 'arc':
+            self.start_angle=0
+            self.stop_angle=angle
+            self.default_angle = angle
+        
+    def update(self):
+        if pygame.mouse.get_pos() and self.status == 'clicked':
+            self.position = pygame.mouse.get_pos()
+            self.rect.center = self.position
+
+    def clicked(self, position, type, _):
+        if self.rect.collidepoint(position):
+            if self.status != 'clicked':
+                self.status = 'clicked'
+            elif type == 1:
+                self.status = None
+                self.rect.update(self.default_position, self.default_size)
+                if self.default_angle:
+                    self.start_angle = 0
+                    self.stop_angle = self.default_angle
+            elif type == 3:
+                rotation = math.pi/180*5
+                self.start_angle += rotation
+                self.stop_angle += rotation
+            elif type == 4:
+                self.rect.inflate_ip(5,5)
+            elif type == 5:
+                self.rect.inflate_ip(-5,-5)
+                if self.rect.width < 5:
+                    self.rect.inflate_ip(5,5)
+            return True
+        else:
+            return False
+    
+    def draw(self, screen, raster_spacing):
+        if self.status != 'clicked':
+            if self.type == 'circle':
+                func = getattr(pygame.draw, self.type)
+                func(screen, 'red', self.rect.topleft, self.rect.size[0], width=0)
+            else:
+                func = getattr(pygame.draw, self.type)
+                func(screen, 'red', self.rect, self.start_angle, self.stop_angle, width=1)
+        else:
+            if self.type == 'circle':
+                func = getattr(pygame.draw, self.type)
+                func(screen, 'red', self.rect.topleft, self.rect.size[0]* raster_spacing / 20 * 2, width=1)
+            else:
+                self.rect.scale_by_ip(raster_spacing / 20 * 2)
+                func = getattr(pygame.draw, self.type)
+                func(screen, 'red', self.rect, self.start_angle, self.stop_angle, width=1)
+                line1 = pygame.math.Vector2(self.rect.size[0]/2, 0)
+                line1 = line1.rotate_rad(-self.start_angle)
+                line2 = pygame.math.Vector2(self.rect.size[0]/2, 0)
+                line2 = line2.rotate_rad(-self.stop_angle)
+                pygame.draw.line(screen, 'red', self.rect.center, pygame.math.Vector2(self.rect.center) + line1, 3)
+                pygame.draw.line(screen, 'red', self.rect.center, pygame.math.Vector2(self.rect.center) + line2, 3)
+                
+                self.rect.scale_by_ip(1/(raster_spacing / 20 * 2))
+            
 
 player = Player()
 backgroundmanager = BackgroundManager(imageLoader, screenInfo)
-clickables = [player, backgroundmanager]
+range_circle = Ranges('circle', (25,25), (25,25))
+range_arc_45 = Ranges('arc', (50,25), (50,50), math.pi/4)
+range_arc_60 = Ranges('arc', (75,25), (50,50), math.pi/3)
+range_arc_90 = Ranges('arc', (100,25), (50,50), math.pi/2)
+clickables = [player, range_circle, range_arc_45, range_arc_60, range_arc_90, backgroundmanager ]
 
 
 while True:
@@ -233,15 +282,24 @@ while True:
             sys.exit()
         elif event.type == pygame.MOUSEBUTTONDOWN:
             for clickable in clickables:
-                clickable.clicked(event.pos, event.button, player)
+                if clickable.clicked(event.pos, event.button, player):
+                    break
         
 
     screen.fill('grey')
-    
     player.update()
+    range_circle.update()
+    range_arc_45.update()
+    range_arc_60.update()
+    range_arc_90.update()
 
     backgroundmanager.draw_background(screen, player)
     screen.blit(player.image, (player.rect.left, player.rect.top))
+    if backgroundmanager.activeBackground:
+        range_circle.draw(screen, backgroundmanager.activeBackground.raster_spacing)
+        range_arc_45.draw(screen, backgroundmanager.activeBackground.raster_spacing)
+        range_arc_60.draw(screen, backgroundmanager.activeBackground.raster_spacing)
+        range_arc_90.draw(screen, backgroundmanager.activeBackground.raster_spacing)
 
     pygame.display.update()
     
